@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenInvoicePeru.ApiClientCSharp", "OpenInvoicePeru.ApiClientCSharp\OpenInvoicePeru.ApiClientCSharp.csproj", "{9608BF0E-765A-4EA6-B755-495F4795F765}"
+EndProject
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "OpenInvoicePeru.ApiClientVisualBasic", "OpenInvoicePeru.ApiClientVisualBasic\OpenInvoicePeru.ApiClientVisualBasic.vbproj", "{4764985E-53F8-42AD-A337-0084B4E36E61}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "00. Archivos Adicionales", "00. Archivos Adicionales", "{06F55677-1AEB-4B1D-8683-FEC6D315C911}"
+	ProjectSection(SolutionItems) = preProject
+		..\README.md = ..\README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "01. CSharp", "01. CSharp", "{D705E643-8A62-461F-804A-C8F02024B191}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "02. Visual Basic", "02. Visual Basic", "{C5EAACCD-321E-489A-B74E-585AE751A3A6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9608BF0E-765A-4EA6-B755-495F4795F765}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9608BF0E-765A-4EA6-B755-495F4795F765}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9608BF0E-765A-4EA6-B755-495F4795F765}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9608BF0E-765A-4EA6-B755-495F4795F765}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4764985E-53F8-42AD-A337-0084B4E36E61}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4764985E-53F8-42AD-A337-0084B4E36E61}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4764985E-53F8-42AD-A337-0084B4E36E61}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4764985E-53F8-42AD-A337-0084B4E36E61}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{9608BF0E-765A-4EA6-B755-495F4795F765} = {D705E643-8A62-461F-804A-C8F02024B191}
+		{4764985E-53F8-42AD-A337-0084B4E36E61} = {C5EAACCD-321E-489A-B74E-585AE751A3A6}
+	EndGlobalSection
+EndGlobal
