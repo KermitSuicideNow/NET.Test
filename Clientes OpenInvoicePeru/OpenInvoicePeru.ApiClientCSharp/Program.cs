@@ -170,57 +170,56 @@ namespace OpenInvoicePeru.ApiClientCSharp
             try
             {
                 Console.WriteLine("Ejemplo de Resumen Diario");
-                var documentoResumenDiario = new ResumenDiario
+                var documentoResumenDiario = new ResumenDiarioNuevo
                 {
                     IdDocumento = string.Format("RC-{0:yyyyMMdd}-001", DateTime.Today),
                     FechaEmision = DateTime.Today.ToString(FormatoFecha),
                     FechaReferencia = DateTime.Today.AddDays(-1).ToString(FormatoFecha),
                     Emisor = CrearEmisor(),
-                    Resumenes = new List<GrupoResumen>()
+                    Resumenes = new List<GrupoResumenNuevo>()
                 };
 
-                documentoResumenDiario.Resumenes.Add(new GrupoResumen
+                documentoResumenDiario.Resumenes.Add(new GrupoResumenNuevo
                 {
                     Id = 1,
-                    CorrelativoInicio = 33386,
-                    CorrelativoFin = 33390,
+                    TipoDocumento = "03",
+                    IdDocumento = "BB14-33386",
+                    NroDocumentoReceptor = "41614074",
+                    TipoDocumentoReceptor = "1",
+                    CodigoEstadoItem = 1,
                     Moneda = "PEN",
                     TotalVenta = 190.9m,
                     TotalIgv = 29.12m,
                     Gravadas = 161.78m,
-                    Exoneradas = 0,
-                    Exportacion = 0,
-                    TipoDocumento = "03",
-                    Serie = "BB50"
                 });
-                documentoResumenDiario.Resumenes.Add(new GrupoResumen
+                documentoResumenDiario.Resumenes.Add(new GrupoResumenNuevo
                 {
                     Id = 2,
-                    CorrelativoInicio = 40000,
-                    CorrelativoFin = 40500,
-                    Moneda = "PEN",
+                    TipoDocumento = "03",
+                    IdDocumento = "BB30-33384",
+                    NroDocumentoReceptor = "08506678",
+                    TipoDocumentoReceptor = "1",
+                    CodigoEstadoItem = 1,
+                    Moneda = "USD",
                     TotalVenta = 9580m,
                     TotalIgv = 1411.36m,
                     Gravadas = 8168.64m,
-                    Exoneradas = 0,
-                    Exportacion = 0,
-                    TipoDocumento = "03",
-                    Serie = "BB30"
                 });
 
 
                 Console.WriteLine("Generando XML....");
                 var client = new RestClient(BaseUrl);
-                var requestInvoice = new RestRequest("GenerarResumenDiario", Method.POST)
+                var requestInvoice = new RestRequest("GenerarResumenDiario/v2", Method.POST)
                 {
                     RequestFormat = DataFormat.Json
                 };
                 requestInvoice.AddBody(documentoResumenDiario);
                 var documentoResponse = client.Execute<DocumentoResponse>(requestInvoice);
                 if (!documentoResponse.Data.Exito)
-                {
                     throw new ApplicationException(documentoResponse.Data.MensajeError);
-                }
+
+                File.WriteAllBytes("resumendiario.xml", Convert.FromBase64String(documentoResponse.Data.TramaXmlSinFirma));
+
                 Console.WriteLine("Firmando XML...");
                 // Firmado del Documento.
                 var firmado = new FirmadoRequest
