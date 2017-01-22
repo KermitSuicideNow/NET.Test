@@ -143,49 +143,51 @@ Module Program
     Private Sub CrearResumenDiario()
         Try
             Console.WriteLine("Ejemplo de Resumen Diario")
-            Dim documentoResumenDiario As New ResumenDiario() With {
+            Dim documentoResumenDiario As New ResumenDiarioNuevo() With {
                 .IdDocumento = String.Format("RC-{0:yyyyMMdd}-001", Date.Today),
                 .FechaEmision = Date.Today.ToString(FormatoFecha),
                 .FechaReferencia = Date.Today.AddDays(-1).ToString(FormatoFecha),
                 .Emisor = CrearEmisor(),
-                .Resumenes = New List(Of GrupoResumen)
+                .Resumenes = New List(Of GrupoResumenNuevo)
             }
 
-            documentoResumenDiario.Resumenes.Add(New GrupoResumen() With {
+            documentoResumenDiario.Resumenes.Add(New GrupoResumenNuevo() With {
                 .Id = 1,
-                .CorrelativoInicio = 33386,
+                .TipoDocumento = "03",
+                .IdDocumento = "BB14-33386",
+                .NroDocumentoReceptor = "41614074",
+                .TipoDocumentoReceptor = "1",
+                .CodigoEstadoItem = 1,
                 .CorrelativoFin = 33390,
                 .Moneda = "PEN",
                 .TotalVenta = 190.9D,
                 .TotalIgv = 29.12D,
-                .Gravadas = 161.78D,
-                .Exoneradas = 0,
-                .Exportacion = 0,
-                .TipoDocumento = "03",
-                .Serie = "BB50"})
-            documentoResumenDiario.Resumenes.Add(New GrupoResumen() With {
+                .Gravadas = 161.78D})
+            documentoResumenDiario.Resumenes.Add(New GrupoResumenNuevo() With {
                 .Id = 2,
-                .CorrelativoInicio = 40000,
-                .CorrelativoFin = 40500,
+                .TipoDocumento = "03",
+                .IdDocumento = "BB30-33384",
+                .NroDocumentoReceptor = "08506678",
+                .TipoDocumentoReceptor = "1",
+                .CodigoEstadoItem = 1,
                 .Moneda = "PEN",
                 .TotalVenta = 9580D,
                 .TotalIgv = 1411.36D,
-                .Gravadas = 8168.64D,
-                .Exoneradas = 0,
-                .Exportacion = 0,
-                .TipoDocumento = "03",
-                .Serie = "BB30"})
+                .Gravadas = 8168.64D})
 
 
             Console.WriteLine("Generando XML....")
             Dim client As New RestClient(_baseUrl)
-            Dim requestInvoice As New RestRequest("GenerarResumenDiario", Method.POST)
+            Dim requestInvoice As New RestRequest("GenerarResumenDiario/v2", Method.POST)
             requestInvoice.RequestFormat = DataFormat.Json
             requestInvoice.AddBody(documentoResumenDiario)
             Dim documentoResponse = client.Execute(Of DocumentoResponse)(requestInvoice)
             If Not documentoResponse.Data.Exito Then
                 Throw New ApplicationException(documentoResponse.Data.MensajeError)
             End If
+
+            File.WriteAllBytes("resumendiario.xml", Convert.FromBase64String(documentoResponse.Data.TramaXmlSinFirma))
+
             Console.WriteLine("Firmando XML...")
             ' Firmado del Documento.
             Dim firmado As New FirmadoRequest() With {
