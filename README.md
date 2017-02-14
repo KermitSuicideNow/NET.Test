@@ -1,4 +1,5 @@
 # Cliente OpenInvoicePeru NET 4.0
+![Open Invoice Perú](https://raw.githubusercontent.com/erickorlando/facturacionelectronicasunat/master/openinvoiceperulogo.PNG "Open Invoice Perú")
 Este proyecto, que se deriva del proyecto original [OpenInvoicePeru](https://goo.gl/9tuEiM). Ejemplifica como crear un cliente de la API REST tanto en C# y Visual Basic teniendo como base el .NET Framework 4.0.
 
 ## Consideraciones ##
