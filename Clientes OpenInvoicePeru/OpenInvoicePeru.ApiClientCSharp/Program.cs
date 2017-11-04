@@ -21,6 +21,7 @@ namespace OpenInvoicePeru.ApiClientCSharp
             CrearResumenDiario();
             CrearComunicacionBaja();
             CrearDocumentoRetencion();
+            CrearDocumentoPercepcion();
         }
 
         private static Contribuyente CrearEmisor()
@@ -463,6 +464,9 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     throw new ApplicationException(responseFirma.Data.MensajeError);
                 }
 
+                Console.WriteLine("Codigo Hash: {0}", responseFirma.Data.ResumenFirma);
+                File.WriteAllBytes("retencion.xml", Convert.FromBase64String(responseFirma.Data.TramaXmlFirmado));
+
                 Console.WriteLine("Enviando Retención a SUNAT....");
 
                 var sendBill = new EnviarDocumentoRequest
@@ -491,6 +495,142 @@ namespace OpenInvoicePeru.ApiClientCSharp
 
                 Console.WriteLine("Respuesta de SUNAT:");
                 Console.WriteLine(responseSendBill.Data.MensajeRespuesta);
+
+                File.WriteAllBytes("cdr.zip", Convert.FromBase64String(responseSendBill.Data.TramaZipCdr));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            finally
+            {
+                Console.ReadLine();
+            }
+        }
+
+        private static void CrearDocumentoPercepcion()
+        {
+            try
+            {
+                Console.WriteLine("Ejemplo de Percepción");
+                var documento = new DocumentoPercepcion
+                {
+                    Emisor = CrearEmisor(),
+                    Receptor = new Contribuyente
+                    {
+                        NroDocumento = "20100039207",
+                        TipoDocumento = "6",
+                        NombreLegal = "RANSA COMERCIAL S.A.",
+                        Ubigeo = "150101",
+                        Direccion = "Av. Argentina 2833",
+                        Urbanizacion = "-",
+                        Departamento = "CALLAO",
+                        Provincia = "CALLAO",
+                        Distrito = "CALLAO"
+                    },
+                    IdDocumento = "P001-123",
+                    FechaEmision = DateTime.Today.ToString(FormatoFecha),
+                    Moneda = "PEN",
+                    RegimenPercepcion = "01",
+                    TasaPercepcion = 2,
+                    ImporteTotalPercibido = 200,
+                    ImporteTotalCobrado = 10000,
+                    Observaciones = "Emision de Facturas del periodo Dic. 2016",
+                    DocumentosRelacionados = new List<ItemPercepcion>
+                    {
+                        new ItemPercepcion
+                        {
+                            NroDocumento = "E001-457",
+                            TipoDocumento = "01",
+                            MonedaDocumentoRelacionado = "USD",
+                            FechaEmision = DateTime.Today.AddDays(-3).ToString(FormatoFecha),
+                            ImporteTotal = 10000,
+                            FechaPago = DateTime.Today.ToString(FormatoFecha),
+                            NumeroPago = 153,
+                            ImporteSinPercepcion = 9800,
+                            ImportePercibido = 200,
+                            FechaPercepcion = DateTime.Today.ToString(FormatoFecha),
+                            ImporteTotalNeto = 10000,
+                            TipoCambio = 3.41m,
+                            FechaTipoCambio = DateTime.Today.ToString(FormatoFecha)
+                        }
+                    }
+                };
+
+                Console.WriteLine("Generando XML....");
+
+                var client = new RestClient(BaseUrl);
+
+                var requestRetencion = new RestRequest("GenerarPercepcion", Method.POST)
+                {
+                    RequestFormat = DataFormat.Json
+                };
+
+                requestRetencion.AddBody(documento);
+
+                var documentoResponse = client.Execute<DocumentoResponse>(requestRetencion);
+
+                if (!documentoResponse.Data.Exito)
+                {
+                    throw new ApplicationException(documentoResponse.Data.MensajeError);
+                }
+
+                Console.WriteLine("Firmando XML...");
+                // Firmado del Documento.
+                var firmado = new FirmadoRequest
+                {
+                    TramaXmlSinFirma = documentoResponse.Data.TramaXmlSinFirma,
+                    CertificadoDigital = Convert.ToBase64String(File.ReadAllBytes("certificado.pfx")),
+                    PasswordCertificado = string.Empty,
+                    UnSoloNodoExtension = true
+                };
+
+                var requestFirma = new RestRequest("Firmar", Method.POST)
+                {
+                    RequestFormat = DataFormat.Json
+                };
+                requestFirma.AddBody(firmado);
+
+                var responseFirma = client.Execute<FirmadoResponse>(requestFirma);
+
+                if (!responseFirma.Data.Exito)
+                {
+                    throw new ApplicationException(responseFirma.Data.MensajeError);
+                }
+
+                Console.WriteLine("Codigo Hash: {0}", responseFirma.Data.ResumenFirma);
+                File.WriteAllBytes("percepcion.xml", Convert.FromBase64String(responseFirma.Data.TramaXmlFirmado));
+
+                Console.WriteLine("Enviando Retención a SUNAT....");
+
+                var sendBill = new EnviarDocumentoRequest
+                {
+                    Ruc = documento.Emisor.NroDocumento,
+                    UsuarioSol = "MODDATOS",
+                    ClaveSol = "MODDATOS",
+                    EndPointUrl = "https://e-beta.sunat.gob.pe/ol-ti-itemision-otroscpe-gem-beta/billService",
+                    IdDocumento = documento.IdDocumento,
+                    TipoDocumento = "40",
+                    TramaXmlFirmado = responseFirma.Data.TramaXmlFirmado
+                };
+
+                var requestSendBill = new RestRequest("EnviarDocumento", Method.POST)
+                {
+                    RequestFormat = DataFormat.Json
+                };
+                requestSendBill.AddBody(sendBill);
+
+                var responseSendBill = client.Execute<EnviarDocumentoResponse>(requestSendBill);
+
+                if (!responseSendBill.Data.Exito)
+                {
+                    throw new ApplicationException(responseSendBill.Data.MensajeError);
+                }
+
+                Console.WriteLine("Respuesta de SUNAT:");
+                Console.WriteLine(responseSendBill.Data.MensajeRespuesta);
+
+                File.WriteAllBytes("cdr_percepcion.zip", Convert.FromBase64String(responseSendBill.Data.TramaZipCdr));
             }
             catch (Exception ex)
             {
