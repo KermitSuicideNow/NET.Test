@@ -19,4 +19,10 @@ Este proyecto se encuentra bajo la licencia **[GNU AGPLv3](https://github.com/er
 Si te gusta este proyecto postea en Twitter o Facebook con el hashtag [#OpenInvoicePeru](https://twitter.com/hashtag/openinvoiceperu) lo que estés realizando.
 
 ## Novedades ##
-Se actualiza el proyecto para que incluya la emisión de Percepciones y además graba los archivos XML Generados y el CDR provisto por SUNAT.
+- Creacion de Facturas
+- Creacion de Boletas
+- Creacion de Nota de Crédito de Factura
+- Creacion de Resumen Diario Nuevo (CustomizationID 1.1)
+- Creacion de Comunicación de Baja
+- Creacion de Retenciones
+- Creacion de Percepciones

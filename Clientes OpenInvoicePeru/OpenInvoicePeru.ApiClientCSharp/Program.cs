@@ -3,32 +3,40 @@ using System.Collections.Generic;
 using System.IO;
 using OpenInvoicePeru.Comun.Dto.Intercambio;
 using OpenInvoicePeru.Comun.Dto.Modelos;
-using RestSharp;
 
 namespace OpenInvoicePeru.ApiClientCSharp
 {
     class Program
     {
-        private static readonly string BaseUrl = "http://localhost/OpenInvoicePeru/api";
-        private static readonly string UrlSunat = "https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService";
+        private const string UrlSunat = "https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService";
+        private const string UrlOtroCpe = "https://e-beta.sunat.gob.pe/ol-ti-itemision-otroscpe-gem-beta/billService";
 
         private const string FormatoFecha = "yyyy-MM-dd";
+        private static string _ruc;
 
         static void Main()
         {
+            Console.ForegroundColor = ConsoleColor.Green;
+
             Console.WriteLine("Prueba de API REST de OpenInvoicePeru (C#)");
+            Console.WriteLine("Ingrese su numero de RUC (puede elegir cualquiera)");
+            _ruc = Console.ReadLine();
             CrearFactura();
+            CrearBoleta();
+            CrearNotaCredito();
             CrearResumenDiario();
             CrearComunicacionBaja();
             CrearDocumentoRetencion();
             CrearDocumentoPercepcion();
+
+            Console.ReadLine();
         }
 
         private static Contribuyente CrearEmisor()
         {
             return new Contribuyente
             {
-                NroDocumento = "20100070970",
+                NroDocumento = _ruc,
                 TipoDocumento = "6",
                 Direccion = "CAL.MORELLI NRO. 181 INT. P-2",
                 Urbanizacion = "-",
@@ -88,48 +96,35 @@ namespace OpenInvoicePeru.ApiClientCSharp
 
                 Console.WriteLine("Generando XML....");
 
-                var client = new RestClient(BaseUrl);
+                var documentoResponse = RestHelper<DocumentoElectronico, DocumentoResponse>.Execute("GenerarFactura", documento);
 
-                var requestInvoice = new RestRequest("GenerarFactura", Method.POST)
+                if (!documentoResponse.Exito)
                 {
-                    RequestFormat = DataFormat.Json
-                };
-
-                requestInvoice.AddBody(documento);
-
-                var documentoResponse = client.Execute<DocumentoResponse>(requestInvoice);
-
-                if (!documentoResponse.Data.Exito)
-                {
-                    throw new ApplicationException(documentoResponse.Data.MensajeError);
+                    throw new InvalidOperationException(documentoResponse.MensajeError);
                 }
 
                 Console.WriteLine("Firmando XML...");
                 // Firmado del Documento.
                 var firmado = new FirmadoRequest
                 {
-                    TramaXmlSinFirma = documentoResponse.Data.TramaXmlSinFirma,
+                    TramaXmlSinFirma = documentoResponse.TramaXmlSinFirma,
                     CertificadoDigital = Convert.ToBase64String(File.ReadAllBytes("certificado.pfx")),
                     PasswordCertificado = string.Empty,
                     UnSoloNodoExtension = false
                 };
 
-                var requestFirma = new RestRequest("Firmar", Method.POST)
-                {
-                    RequestFormat = DataFormat.Json
-                };
-                requestFirma.AddBody(firmado);
+                var responseFirma = RestHelper<FirmadoRequest, FirmadoResponse>.Execute("Firmar", firmado);
 
-                var responseFirma = client.Execute<FirmadoResponse>(requestFirma);
-
-                if (!responseFirma.Data.Exito)
+                if (!responseFirma.Exito)
                 {
-                    throw new ApplicationException(responseFirma.Data.MensajeError);
+                    throw new InvalidOperationException(responseFirma.MensajeError);
                 }
+
+                File.WriteAllBytes("factura.xml", Convert.FromBase64String(responseFirma.TramaXmlFirmado));
 
                 Console.WriteLine("Enviando a SUNAT....");
 
-                var sendBill = new EnviarDocumentoRequest
+                var documentoRequest = new EnviarDocumentoRequest
                 {
                     Ruc = documento.Emisor.NroDocumento,
                     UsuarioSol = "MODDATOS",
@@ -137,24 +132,253 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     EndPointUrl = UrlSunat,
                     IdDocumento = documento.IdDocumento,
                     TipoDocumento = documento.TipoDocumento,
-                    TramaXmlFirmado = responseFirma.Data.TramaXmlFirmado
+                    TramaXmlFirmado = responseFirma.TramaXmlFirmado
                 };
 
-                var requestSendBill = new RestRequest("EnviarDocumento", Method.POST)
-                {
-                    RequestFormat = DataFormat.Json
-                };
-                requestSendBill.AddBody(sendBill);
+                var enviarDocumentoResponse = RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento", documentoRequest);
 
-                var responseSendBill = client.Execute<EnviarDocumentoResponse>(requestSendBill);
-
-                if (!responseSendBill.Data.Exito)
+                if (!enviarDocumentoResponse.Exito)
                 {
-                    throw new ApplicationException(responseSendBill.Data.MensajeError);
+                    throw new InvalidOperationException(enviarDocumentoResponse.MensajeError);
                 }
 
+                File.WriteAllBytes("facturacdr.zip", Convert.FromBase64String(enviarDocumentoResponse.TramaZipCdr));
+
                 Console.WriteLine("Respuesta de SUNAT:");
-                Console.WriteLine(responseSendBill.Data.MensajeRespuesta);
+                Console.WriteLine(enviarDocumentoResponse.MensajeRespuesta);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            finally
+            {
+                Console.ReadLine();
+            }
+        }
+        
+        private static void CrearBoleta()
+        {
+            try
+            {
+                Console.WriteLine("Ejemplo Boleta");
+                var documento = new DocumentoElectronico
+                {
+                    Emisor = CrearEmisor(),
+                    Receptor = new Contribuyente
+                    {
+                        NroDocumento = "88888888",
+                        TipoDocumento = "1",
+                        NombreLegal = "CLIENTE GENERICO"
+                    },
+                    IdDocumento = "BB11-001",
+                    FechaEmision = DateTime.Today.AddDays(-5).ToString(FormatoFecha),
+                    Moneda = "PEN",
+                    MontoEnLetras = "SON CIENTO DIECIOCHO SOLES CON 0/100",
+                    CalculoIgv = 0.18m,
+                    CalculoIsc = 0.10m,
+                    CalculoDetraccion = 0.04m,
+                    TipoDocumento = "03",
+                    TotalIgv = 18,
+                    TotalVenta = 118,
+                    Gravadas = 100,
+                    Items = new List<DetalleDocumento>
+                    {
+                        new DetalleDocumento
+                        {
+                            Id = 1,
+                            Cantidad = 10,
+                            PrecioReferencial = 10,
+                            PrecioUnitario = 10,
+                            TipoPrecio = "01",
+                            CodigoItem = "2435675",
+                            Descripcion = "USB Kingston ©",
+                            UnidadMedida = "NIU",
+                            Impuesto = 18,
+                            TipoImpuesto = "10", // Gravada
+                            TotalVenta = 100,
+                            Suma = 100
+                        }
+                    }
+                };
+
+                Console.WriteLine("Generando XML....");
+
+                var documentoResponse = RestHelper<DocumentoElectronico, DocumentoResponse>.Execute("GenerarFactura", documento);
+
+                if (!documentoResponse.Exito)
+                {
+                    throw new InvalidOperationException(documentoResponse.MensajeError);
+                }
+
+                Console.WriteLine("Firmando XML...");
+                // Firmado del Documento.
+                var firmado = new FirmadoRequest
+                {
+                    TramaXmlSinFirma = documentoResponse.TramaXmlSinFirma,
+                    CertificadoDigital = Convert.ToBase64String(File.ReadAllBytes("certificado.pfx")),
+                    PasswordCertificado = string.Empty,
+                    UnSoloNodoExtension = false
+                };
+
+                var responseFirma = RestHelper<FirmadoRequest, FirmadoResponse>.Execute("Firmar", firmado);
+
+                if (!responseFirma.Exito)
+                {
+                    throw new InvalidOperationException(responseFirma.MensajeError);
+                }
+
+                File.WriteAllBytes("boleta.xml", Convert.FromBase64String(responseFirma.TramaXmlFirmado));
+
+                Console.WriteLine("Enviando a SUNAT....");
+
+                var documentoRequest = new EnviarDocumentoRequest
+                {
+                    Ruc = documento.Emisor.NroDocumento,
+                    UsuarioSol = "MODDATOS",
+                    ClaveSol = "MODDATOS",
+                    EndPointUrl = UrlSunat,
+                    IdDocumento = documento.IdDocumento,
+                    TipoDocumento = documento.TipoDocumento,
+                    TramaXmlFirmado = responseFirma.TramaXmlFirmado
+                };
+
+                var enviarDocumentoResponse = RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento", documentoRequest);
+
+                if (!enviarDocumentoResponse.Exito)
+                {
+                    throw new InvalidOperationException(enviarDocumentoResponse.MensajeError);
+                }
+
+                File.WriteAllBytes("boletacdr.zip", Convert.FromBase64String(enviarDocumentoResponse.TramaZipCdr));
+
+                Console.WriteLine("Respuesta de SUNAT:");
+                Console.WriteLine(enviarDocumentoResponse.MensajeRespuesta);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            finally
+            {
+                Console.ReadLine();
+            }
+        }
+        
+        private static void CrearNotaCredito()
+        {
+            try
+            {
+                Console.WriteLine("Ejemplo Nota de Crédito de Factura");
+                var documento = new DocumentoElectronico
+                {
+                    Emisor = CrearEmisor(),
+                    Receptor = new Contribuyente
+                    {
+                        NroDocumento = "20257471609",
+                        TipoDocumento = "6",
+                        NombreLegal = "FRAMEWORK PERU"
+                    },
+                    IdDocumento = "FN11-001",
+                    FechaEmision = DateTime.Today.AddDays(-5).ToString(FormatoFecha),
+                    Moneda = "PEN",
+                    MontoEnLetras = "SON CINCO SOLES CON 0/100",
+                    CalculoIgv = 0.18m,
+                    CalculoIsc = 0.10m,
+                    CalculoDetraccion = 0.04m,
+                    TipoDocumento = "07",
+                    TotalIgv = 0.76m,
+                    TotalVenta = 5,
+                    Gravadas = 4.24m,
+                    Items = new List<DetalleDocumento>
+                    {
+                        new DetalleDocumento
+                        {
+                            Id = 1,
+                            Cantidad = 1,
+                            PrecioReferencial = 4.24m,
+                            PrecioUnitario = 4.24m,
+                            TipoPrecio = "01",
+                            CodigoItem = "2435675",
+                            Descripcion = "Correcion Factura",
+                            UnidadMedida = "NIU",
+                            Impuesto = 0.76m,
+                            TipoImpuesto = "10", // Gravada
+                            TotalVenta = 5,
+                            Suma = 5
+                        }
+                    },
+                    Discrepancias = new List<Discrepancia>
+                    {
+                        new Discrepancia
+                        {
+                            NroReferencia = "FF11-001",
+                            Tipo = "01",
+                            Descripcion = "Anulacion de la operacion"
+                        }
+                    },
+                    Relacionados = new List<DocumentoRelacionado>
+                    {
+                        new DocumentoRelacionado
+                        {
+                            NroDocumento = "FF11-001",
+                            TipoDocumento = "01"
+                        }
+                    }
+                };
+
+                Console.WriteLine("Generando XML....");
+
+                var documentoResponse = RestHelper<DocumentoElectronico, DocumentoResponse>.Execute("GenerarNotaCredito", documento);
+
+                if (!documentoResponse.Exito)
+                {
+                    throw new InvalidOperationException(documentoResponse.MensajeError);
+                }
+
+                Console.WriteLine("Firmando XML...");
+                // Firmado del Documento.
+                var firmado = new FirmadoRequest
+                {
+                    TramaXmlSinFirma = documentoResponse.TramaXmlSinFirma,
+                    CertificadoDigital = Convert.ToBase64String(File.ReadAllBytes("certificado.pfx")),
+                    PasswordCertificado = string.Empty,
+                    UnSoloNodoExtension = false
+                };
+
+                var responseFirma = RestHelper<FirmadoRequest, FirmadoResponse>.Execute("Firmar", firmado);
+
+                if (!responseFirma.Exito)
+                {
+                    throw new InvalidOperationException(responseFirma.MensajeError);
+                }
+
+                File.WriteAllBytes("notacredito.xml", Convert.FromBase64String(responseFirma.TramaXmlFirmado));
+
+                Console.WriteLine("Enviando a SUNAT....");
+
+                var documentoRequest = new EnviarDocumentoRequest
+                {
+                    Ruc = documento.Emisor.NroDocumento,
+                    UsuarioSol = "MODDATOS",
+                    ClaveSol = "MODDATOS",
+                    EndPointUrl = UrlSunat,
+                    IdDocumento = documento.IdDocumento,
+                    TipoDocumento = documento.TipoDocumento,
+                    TramaXmlFirmado = responseFirma.TramaXmlFirmado
+                };
+
+                var enviarDocumentoResponse = RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento", documentoRequest);
+
+                if (!enviarDocumentoResponse.Exito)
+                {
+                    throw new InvalidOperationException(enviarDocumentoResponse.MensajeError);
+                }
+
+                File.WriteAllBytes("notacreditocdr.zip", Convert.FromBase64String(enviarDocumentoResponse.TramaZipCdr));
+
+                Console.WriteLine("Respuesta de SUNAT:");
+                Console.WriteLine(enviarDocumentoResponse.MensajeRespuesta);
             }
             catch (Exception ex)
             {
@@ -187,12 +411,13 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     IdDocumento = "BB14-33386",
                     NroDocumentoReceptor = "41614074",
                     TipoDocumentoReceptor = "1",
-                    CodigoEstadoItem = 1,
+                    CodigoEstadoItem = 1, // 1 - Agregar. 2 - Modificar. 3 - Eliminar
                     Moneda = "PEN",
                     TotalVenta = 190.9m,
                     TotalIgv = 29.12m,
                     Gravadas = 161.78m,
                 });
+                // Para los casos de envio de boletas anuladas, se debe primero informar las boletas creadas (1) y luego en un segundo resumen se envian las anuladas. De lo contrario se presentará el error 'El documento indicado no existe no puede ser modificado/eliminado'
                 documentoResumenDiario.Resumenes.Add(new GrupoResumenNuevo
                 {
                     Id = 2,
@@ -200,7 +425,7 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     IdDocumento = "BB30-33384",
                     NroDocumentoReceptor = "08506678",
                     TipoDocumentoReceptor = "1",
-                    CodigoEstadoItem = 1,
+                    CodigoEstadoItem = 1, // 1 - Agregar. 2 - Modificar. 3 - Eliminar
                     Moneda = "USD",
                     TotalVenta = 9580m,
                     TotalIgv = 1411.36m,
@@ -209,62 +434,53 @@ namespace OpenInvoicePeru.ApiClientCSharp
 
 
                 Console.WriteLine("Generando XML....");
-                var client = new RestClient(BaseUrl);
-                var requestInvoice = new RestRequest("GenerarResumenDiario/v2", Method.POST)
-                {
-                    RequestFormat = DataFormat.Json
-                };
-                requestInvoice.AddBody(documentoResumenDiario);
-                var documentoResponse = client.Execute<DocumentoResponse>(requestInvoice);
-                if (!documentoResponse.Data.Exito)
-                    throw new ApplicationException(documentoResponse.Data.MensajeError);
+                
+                var documentoResponse = RestHelper<ResumenDiarioNuevo, DocumentoResponse>.Execute("GenerarResumenDiario/v2", documentoResumenDiario);
 
-                File.WriteAllBytes("resumendiario.xml", Convert.FromBase64String(documentoResponse.Data.TramaXmlSinFirma));
+                if (!documentoResponse.Exito)
+                    throw new InvalidOperationException(documentoResponse.MensajeError);
 
                 Console.WriteLine("Firmando XML...");
                 // Firmado del Documento.
                 var firmado = new FirmadoRequest
                 {
-                    TramaXmlSinFirma = documentoResponse.Data.TramaXmlSinFirma,
+                    TramaXmlSinFirma = documentoResponse.TramaXmlSinFirma,
                     CertificadoDigital = Convert.ToBase64String(File.ReadAllBytes("Certificado.pfx")),
                     PasswordCertificado = string.Empty,
                     UnSoloNodoExtension = true
                 };
 
-                var requestFirma = new RestRequest("Firmar", Method.POST) { RequestFormat = DataFormat.Json };
-                requestFirma.AddBody(firmado);
+                var responseFirma = RestHelper<FirmadoRequest, FirmadoResponse>.Execute("Firmar", firmado);
 
-                var responseFirma = client.Execute<FirmadoResponse>(requestFirma);
-
-                if (!responseFirma.Data.Exito)
+                if (!responseFirma.Exito)
                 {
-                    throw new ApplicationException(responseFirma.Data.MensajeError);
+                    throw new InvalidOperationException(responseFirma.MensajeError);
                 }
+
+                Console.WriteLine("Guardando XML de Resumen....(Revisar carpeta del ejecutable)");
+
+                File.WriteAllBytes("resumendiario.xml", Convert.FromBase64String(responseFirma.TramaXmlFirmado));
 
                 Console.WriteLine("Enviando a SUNAT....");
 
-                var sendBill = new EnviarDocumentoRequest
+                var enviarDocumentoRequest = new EnviarDocumentoRequest
                 {
                     Ruc = documentoResumenDiario.Emisor.NroDocumento,
                     UsuarioSol = "MODDATOS",
                     ClaveSol = "MODDATOS",
                     EndPointUrl = UrlSunat,
                     IdDocumento = documentoResumenDiario.IdDocumento,
-                    TramaXmlFirmado = responseFirma.Data.TramaXmlFirmado
+                    TramaXmlFirmado = responseFirma.TramaXmlFirmado
                 };
 
-                var restRequest = new RestRequest("EnviarResumen", Method.POST) { RequestFormat = DataFormat.Json };
+                var enviarResumenResponse = RestHelper<EnviarDocumentoRequest, EnviarResumenResponse>.Execute("EnviarResumen", enviarDocumentoRequest);
 
-                restRequest.AddBody(sendBill);
-
-                var restResponse = client.Execute<EnviarResumenResponse>(restRequest);
-
-                if (!restResponse.Data.Exito)
+                if (!enviarResumenResponse.Exito)
                 {
-                    throw new ApplicationException(restResponse.Data.MensajeError);
+                    throw new InvalidOperationException(enviarResumenResponse.MensajeError);
                 }
 
-                Console.WriteLine("Nro de Ticket: {0}", restResponse.Data.NroTicket);
+                Console.WriteLine("Nro de Ticket: {0}", enviarResumenResponse.NroTicket);
             }
             catch (Exception ex)
             {
@@ -290,12 +506,14 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     Bajas = new List<DocumentoBaja>()
                 };
 
+                // En las comunicaciones de Baja ya no se pueden colocar boletas, ya que la anulacion de las mismas
+                // la realiza el resumen diario.
                 documentoBaja.Bajas.Add(new DocumentoBaja
                 {
                     Id = 1,
                     Correlativo = "33386",
-                    TipoDocumento = "03",
-                    Serie = "BB50",
+                    TipoDocumento = "01",
+                    Serie = "FA50",
                     MotivoBaja = "Anulación por otro tipo de documento"
                 });
                 documentoBaja.Bajas.Add(new DocumentoBaja
@@ -308,36 +526,33 @@ namespace OpenInvoicePeru.ApiClientCSharp
                 });
 
                 Console.WriteLine("Generando XML....");
-                var client = new RestClient(BaseUrl);
-                var requestInvoice = new RestRequest("GenerarComunicacionBaja", Method.POST)
+                
+                var documentoResponse = RestHelper<ComunicacionBaja, DocumentoResponse>.Execute("GenerarComunicacionBaja", documentoBaja);
+                if (!documentoResponse.Exito)
                 {
-                    RequestFormat = DataFormat.Json
-                };
-                requestInvoice.AddBody(documentoBaja);
-                var documentoResponse = client.Execute<DocumentoResponse>(requestInvoice);
-                if (!documentoResponse.Data.Exito)
-                {
-                    throw new ApplicationException(documentoResponse.Data.MensajeError);
+                    throw new InvalidOperationException(documentoResponse.MensajeError);
                 }
+
                 Console.WriteLine("Firmando XML...");
                 // Firmado del Documento.
                 var firmado = new FirmadoRequest
                 {
-                    TramaXmlSinFirma = documentoResponse.Data.TramaXmlSinFirma,
+                    TramaXmlSinFirma = documentoResponse.TramaXmlSinFirma,
                     CertificadoDigital = Convert.ToBase64String(File.ReadAllBytes("Certificado.pfx")),
                     PasswordCertificado = string.Empty,
                     UnSoloNodoExtension = true
                 };
 
-                var requestFirma = new RestRequest("Firmar", Method.POST) { RequestFormat = DataFormat.Json };
-                requestFirma.AddBody(firmado);
+                var responseFirma = RestHelper<FirmadoRequest, FirmadoResponse>.Execute("Firmar", firmado);
 
-                var responseFirma = client.Execute<FirmadoResponse>(requestFirma);
-
-                if (!responseFirma.Data.Exito)
+                if (!responseFirma.Exito)
                 {
-                    throw new ApplicationException(responseFirma.Data.MensajeError);
+                    throw new InvalidOperationException(responseFirma.MensajeError);
                 }
+
+                Console.WriteLine("Guardando XML de la Comunicacion de Baja....(Revisar carpeta del ejecutable)");
+
+                File.WriteAllBytes("comunicacionbaja.xml", Convert.FromBase64String(responseFirma.TramaXmlFirmado));
 
                 Console.WriteLine("Enviando a SUNAT....");
 
@@ -348,21 +563,17 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     ClaveSol = "MODDATOS",
                     EndPointUrl = UrlSunat,
                     IdDocumento = documentoBaja.IdDocumento,
-                    TramaXmlFirmado = responseFirma.Data.TramaXmlFirmado
+                    TramaXmlFirmado = responseFirma.TramaXmlFirmado
                 };
 
-                var restRequest = new RestRequest("EnviarResumen", Method.POST) { RequestFormat = DataFormat.Json };
+                var enviarResumenResponse = RestHelper<EnviarDocumentoRequest, EnviarResumenResponse>.Execute("EnviarResumen", sendBill);
 
-                restRequest.AddBody(sendBill);
-
-                var restResponse = client.Execute<EnviarResumenResponse>(restRequest);
-
-                if (!restResponse.Data.Exito)
+                if (!enviarResumenResponse.Exito)
                 {
-                    throw new ApplicationException(restResponse.Data.MensajeError);
+                    throw new InvalidOperationException(enviarResumenResponse.MensajeError);
                 }
 
-                Console.WriteLine("Nro de Ticket: {0}", restResponse.Data.NroTicket);
+                Console.WriteLine("Nro de Ticket: {0}", enviarResumenResponse.NroTicket);
             }
             catch (Exception ex)
             {
@@ -425,78 +636,56 @@ namespace OpenInvoicePeru.ApiClientCSharp
 
                 Console.WriteLine("Generando XML....");
 
-                var client = new RestClient(BaseUrl);
+                var documentoResponse = RestHelper<DocumentoRetencion, DocumentoResponse>.Execute("GenerarRetencion", documento);
 
-                var requestRetencion = new RestRequest("GenerarRetencion", Method.POST)
+                if (!documentoResponse.Exito)
                 {
-                    RequestFormat = DataFormat.Json
-                };
-
-                requestRetencion.AddBody(documento);
-
-                var documentoResponse = client.Execute<DocumentoResponse>(requestRetencion);
-
-                if (!documentoResponse.Data.Exito)
-                {
-                    throw new ApplicationException(documentoResponse.Data.MensajeError);
+                    throw new InvalidOperationException(documentoResponse.MensajeError);
                 }
 
                 Console.WriteLine("Firmando XML...");
                 // Firmado del Documento.
                 var firmado = new FirmadoRequest
                 {
-                    TramaXmlSinFirma = documentoResponse.Data.TramaXmlSinFirma,
+                    TramaXmlSinFirma = documentoResponse.TramaXmlSinFirma,
                     CertificadoDigital = Convert.ToBase64String(File.ReadAllBytes("certificado.pfx")),
                     PasswordCertificado = string.Empty,
                     UnSoloNodoExtension = true
                 };
 
-                var requestFirma = new RestRequest("Firmar", Method.POST)
-                {
-                    RequestFormat = DataFormat.Json
-                };
-                requestFirma.AddBody(firmado);
+                var responseFirma = RestHelper<FirmadoRequest, FirmadoResponse>.Execute("Firmar", firmado);
 
-                var responseFirma = client.Execute<FirmadoResponse>(requestFirma);
-
-                if (!responseFirma.Data.Exito)
+                if (!responseFirma.Exito)
                 {
-                    throw new ApplicationException(responseFirma.Data.MensajeError);
+                    throw new InvalidOperationException(responseFirma.MensajeError);
                 }
 
-                Console.WriteLine("Codigo Hash: {0}", responseFirma.Data.ResumenFirma);
-                File.WriteAllBytes("retencion.xml", Convert.FromBase64String(responseFirma.Data.TramaXmlFirmado));
+                File.WriteAllBytes("retencion.xml", Convert.FromBase64String(responseFirma.TramaXmlFirmado));
 
                 Console.WriteLine("Enviando Retención a SUNAT....");
 
-                var sendBill = new EnviarDocumentoRequest
+                var enviarDocumentoRequest = new EnviarDocumentoRequest
                 {
                     Ruc = documento.Emisor.NroDocumento,
                     UsuarioSol = "MODDATOS",
                     ClaveSol = "MODDATOS",
-                    EndPointUrl = "https://e-beta.sunat.gob.pe/ol-ti-itemision-otroscpe-gem-beta/billService",
+                    EndPointUrl = UrlOtroCpe,
                     IdDocumento = documento.IdDocumento,
                     TipoDocumento = "20",
-                    TramaXmlFirmado = responseFirma.Data.TramaXmlFirmado
+                    TramaXmlFirmado = responseFirma.TramaXmlFirmado
                 };
 
-                var requestSendBill = new RestRequest("EnviarDocumento", Method.POST)
-                {
-                    RequestFormat = DataFormat.Json
-                };
-                requestSendBill.AddBody(sendBill);
+                var enviarDocumentoResponse = RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento", enviarDocumentoRequest);
 
-                var responseSendBill = client.Execute<EnviarDocumentoResponse>(requestSendBill);
-
-                if (!responseSendBill.Data.Exito)
+                if (!enviarDocumentoResponse.Exito)
                 {
-                    throw new ApplicationException(responseSendBill.Data.MensajeError);
+                    throw new InvalidOperationException(enviarDocumentoResponse.MensajeError);
                 }
 
                 Console.WriteLine("Respuesta de SUNAT:");
-                Console.WriteLine(responseSendBill.Data.MensajeRespuesta);
+                Console.WriteLine(enviarDocumentoResponse.MensajeRespuesta);
 
-                File.WriteAllBytes("cdr.zip", Convert.FromBase64String(responseSendBill.Data.TramaZipCdr));
+                File.WriteAllBytes("retencioncdr.zip", Convert.FromBase64String(enviarDocumentoResponse.TramaZipCdr));
             }
             catch (Exception ex)
             {
@@ -559,47 +748,31 @@ namespace OpenInvoicePeru.ApiClientCSharp
 
                 Console.WriteLine("Generando XML....");
 
-                var client = new RestClient(BaseUrl);
+                var documentoResponse = RestHelper<DocumentoPercepcion, DocumentoResponse>.Execute("GenerarPercepcion", documento);
 
-                var requestRetencion = new RestRequest("GenerarPercepcion", Method.POST)
+                if (!documentoResponse.Exito)
                 {
-                    RequestFormat = DataFormat.Json
-                };
-
-                requestRetencion.AddBody(documento);
-
-                var documentoResponse = client.Execute<DocumentoResponse>(requestRetencion);
-
-                if (!documentoResponse.Data.Exito)
-                {
-                    throw new ApplicationException(documentoResponse.Data.MensajeError);
+                    throw new InvalidOperationException(documentoResponse.MensajeError);
                 }
 
                 Console.WriteLine("Firmando XML...");
                 // Firmado del Documento.
                 var firmado = new FirmadoRequest
                 {
-                    TramaXmlSinFirma = documentoResponse.Data.TramaXmlSinFirma,
+                    TramaXmlSinFirma = documentoResponse.TramaXmlSinFirma,
                     CertificadoDigital = Convert.ToBase64String(File.ReadAllBytes("certificado.pfx")),
                     PasswordCertificado = string.Empty,
                     UnSoloNodoExtension = true
                 };
 
-                var requestFirma = new RestRequest("Firmar", Method.POST)
-                {
-                    RequestFormat = DataFormat.Json
-                };
-                requestFirma.AddBody(firmado);
+                var responseFirma = RestHelper<FirmadoRequest, FirmadoResponse>.Execute("Firmar", firmado);
 
-                var responseFirma = client.Execute<FirmadoResponse>(requestFirma);
-
-                if (!responseFirma.Data.Exito)
+                if (!responseFirma.Exito)
                 {
-                    throw new ApplicationException(responseFirma.Data.MensajeError);
+                    throw new InvalidOperationException(responseFirma.MensajeError);
                 }
 
-                Console.WriteLine("Codigo Hash: {0}", responseFirma.Data.ResumenFirma);
-                File.WriteAllBytes("percepcion.xml", Convert.FromBase64String(responseFirma.Data.TramaXmlFirmado));
+                File.WriteAllBytes("percepcion.xml", Convert.FromBase64String(responseFirma.TramaXmlFirmado));
 
                 Console.WriteLine("Enviando Retención a SUNAT....");
 
@@ -608,29 +781,23 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     Ruc = documento.Emisor.NroDocumento,
                     UsuarioSol = "MODDATOS",
                     ClaveSol = "MODDATOS",
-                    EndPointUrl = "https://e-beta.sunat.gob.pe/ol-ti-itemision-otroscpe-gem-beta/billService",
+                    EndPointUrl = UrlOtroCpe,
                     IdDocumento = documento.IdDocumento,
                     TipoDocumento = "40",
-                    TramaXmlFirmado = responseFirma.Data.TramaXmlFirmado
+                    TramaXmlFirmado = responseFirma.TramaXmlFirmado
                 };
 
-                var requestSendBill = new RestRequest("EnviarDocumento", Method.POST)
-                {
-                    RequestFormat = DataFormat.Json
-                };
-                requestSendBill.AddBody(sendBill);
+                var responseSendBill = RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento", sendBill);
 
-                var responseSendBill = client.Execute<EnviarDocumentoResponse>(requestSendBill);
-
-                if (!responseSendBill.Data.Exito)
+                if (!responseSendBill.Exito)
                 {
-                    throw new ApplicationException(responseSendBill.Data.MensajeError);
+                    throw new InvalidOperationException(responseSendBill.MensajeError);
                 }
 
                 Console.WriteLine("Respuesta de SUNAT:");
-                Console.WriteLine(responseSendBill.Data.MensajeRespuesta);
+                Console.WriteLine(responseSendBill.MensajeRespuesta);
 
-                File.WriteAllBytes("cdr_percepcion.zip", Convert.FromBase64String(responseSendBill.Data.TramaZipCdr));
+                File.WriteAllBytes("percepcioncdr.zip", Convert.FromBase64String(responseSendBill.TramaZipCdr));
             }
             catch (Exception ex)
             {
