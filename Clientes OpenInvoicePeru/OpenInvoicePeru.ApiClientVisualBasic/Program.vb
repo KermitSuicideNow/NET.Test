@@ -107,6 +107,9 @@ Module Program
                 Throw New InvalidOperationException(responseFirma.MensajeError)
             End If
 
+            Console.WriteLine("Codigo Hash: {0} ", responseFirma.ResumenFirma) '28 caracteres
+            Console.WriteLine("Valor de la firma: {0}", responseFirma.ValorFirma)
+
             File.WriteAllBytes("factura.xml", Convert.FromBase64String(responseFirma.TramaXmlFirmado))
 
             Console.WriteLine("Enviando a SUNAT....")
