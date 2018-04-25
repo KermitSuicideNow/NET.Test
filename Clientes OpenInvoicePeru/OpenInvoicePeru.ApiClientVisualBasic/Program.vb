@@ -32,14 +32,14 @@ Module Program
     Private Function CrearEmisor() As Contribuyente
         Return New Contribuyente() With {
             .NroDocumento = _ruc,
-            .TipoDocumento = "6",
-            .Direccion = "CAL.MORELLI NRO. 181 INT. P-2",
+            .TipoDocumento = "6", 'CATALOGO N° 06
+            .Direccion = "CARRETERA PIMENTEL",
             .Urbanizacion = "-",
-            .Departamento = "LIMA",
-            .Provincia = "LIMA",
-            .Distrito = "SAN BORJA",
-            .NombreComercial = "PLAZA VEA",
-            .NombreLegal = "SUPERMERCADOS PERUANOS SOCIEDAD ANONIMA",
+            .Departamento = "LA LIBERTAD",
+            .Provincia = "CHICLAYO",
+            .Distrito = "CHICLAYO",
+            .NombreComercial = "EMPRESA DE SOFTWARE",
+            .NombreLegal = "EMPRESA DE SOFTWARE S.A.C.",
             .Ubigeo = "140101"
         }
     End Function
@@ -56,13 +56,9 @@ Module Program
                     .NombreLegal = "RANSA COMERCIAL S.A."
                 },
                 .IdDocumento = "FF11-001",
-                .FechaEmision = DateTime.Today.AddDays(-5).ToString(FormatoFecha),
+                .FechaEmision = DateTime.Today.ToString(FormatoFecha),
                 .Moneda = "PEN",
-                .MontoEnLetras = "SON CIENTO DIECIOCHO SOLES CON 0/100",
-                .CalculoIgv = 0.18D,
-                .CalculoIsc = 0.1D,
-                .CalculoDetraccion = 0.04D,
-                .TipoDocumento = "01",
+                .TipoDocumento = "01", 'CATALOGO N° 1
                 .TotalIgv = 18,
                 .TotalVenta = 118,
                 .Gravadas = 100,
@@ -72,14 +68,13 @@ Module Program
                         .Cantidad = 5,
                         .PrecioReferencial = 20,
                         .PrecioUnitario = 20,
-                        .TipoPrecio = "01",
-                        .CodigoItem = "1234234",
+                        .TipoPrecio = "01", 'CATALOGO N° 16
+                        .CodigoItem = "XXXXX",
                         .Descripcion = "Arroz Costeño",
-                        .UnidadMedida = "KG",
+                        .UnidadMedida = "KGM", 'CATALOGO N° 3
                         .Impuesto = 18,
-                        .TipoImpuesto = "10",
-                        .TotalVenta = 100,
-                        .Suma = 100
+                        .TipoImpuesto = "10", 'OPERACION GRAVADA -> CATALOGO N° 07
+                        .TotalVenta = 100 'MONTO TOTAL DE VENTA SIN IGV
                     }
                 }
             }
@@ -107,6 +102,7 @@ Module Program
                 Throw New InvalidOperationException(responseFirma.MensajeError)
             End If
 
+            'estos datos sirven para crear el código QR o el PDF417
             Console.WriteLine("Codigo Hash: {0} ", responseFirma.ResumenFirma) '28 caracteres
             Console.WriteLine("Valor de la firma: {0}", responseFirma.ValorFirma)
 
@@ -133,6 +129,7 @@ Module Program
             File.WriteAllBytes("facturacdr.zip", Convert.FromBase64String(enviarDocumentoResponse.TramaZipCdr))
 
             Console.WriteLine("Respuesta de SUNAT:")
+            Console.WriteLine(enviarDocumentoResponse.CodigoRespuesta)
             Console.WriteLine(enviarDocumentoResponse.MensajeRespuesta)
         Catch ex As Exception
             Console.WriteLine(ex.Message)
@@ -155,10 +152,6 @@ Module Program
                 .IdDocumento = "BB11-001",
                 .FechaEmision = DateTime.Today.AddDays(-5).ToString(FormatoFecha),
                 .Moneda = "PEN",
-                .MontoEnLetras = "SON CIENTO DIECIOCHO SOLES CON 0/100",
-                .CalculoIgv = 0.18D,
-                .CalculoIsc = 0.1D,
-                .CalculoDetraccion = 0.04D,
                 .TipoDocumento = "03",
                 .TotalIgv = 18,
                 .TotalVenta = 118,
@@ -175,8 +168,7 @@ Module Program
                         .UnidadMedida = "NIU",
                         .Impuesto = 18,
                         .TipoImpuesto = "10",
-                        .TotalVenta = 100,
-                        .Suma = 100
+                        .TotalVenta = 100
                     }
                 }
             }
@@ -247,12 +239,8 @@ Module Program
                     .NombreLegal = "FRAMEWORK PERU"
                 },
                 .IdDocumento = "FN11-001",
-                .FechaEmision = DateTime.Today.AddDays(-5).ToString(FormatoFecha),
+                .FechaEmision = DateTime.Today.ToString(FormatoFecha),
                 .Moneda = "PEN",
-                .MontoEnLetras = "SON CINCO SOLES CON 0/100",
-                .CalculoIgv = 0.18D,
-                .CalculoIsc = 0.1D,
-                .CalculoDetraccion = 0.04D,
                 .TipoDocumento = "07",
                 .TotalIgv = 0.76D,
                 .TotalVenta = 5,
@@ -265,25 +253,24 @@ Module Program
                         .PrecioUnitario = 4.24D,
                         .TipoPrecio = "01",
                         .CodigoItem = "2435675",
-                        .Descripcion = "Correcion Factura",
+                        .Descripcion = "Correcion de Factura",
                         .UnidadMedida = "NIU",
                         .Impuesto = 0.76D,
                         .TipoImpuesto = "10",
-                        .TotalVenta = 5,
-                        .Suma = 5
+                        .TotalVenta = 5
                     }
                 },
                 .Discrepancias = New List(Of Discrepancia)() From {
                     New Discrepancia() With {
                         .NroReferencia = "FF11-001",
-                        .Tipo = "01",
-                        .Descripcion = "Anulacion de la operacion"
+                        .Tipo = "04", 'TIPO DE MOTIVO DE APLICACION DE NOTA -> CATALOGO N° 09 (NC)
+                        .Descripcion = "Correccion del monto original" 'PARA ND -> CATALOGO N° 10
                     }
                 },
                 .Relacionados = New List(Of DocumentoRelacionado)() From {
                     New DocumentoRelacionado() With {
                         .NroDocumento = "FF11-001",
-                        .TipoDocumento = "01"
+                        .TipoDocumento = "01" 'CATALOGO N° 1
                     }
                 }
             }

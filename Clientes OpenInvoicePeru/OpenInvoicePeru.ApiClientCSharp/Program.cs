@@ -38,13 +38,13 @@ namespace OpenInvoicePeru.ApiClientCSharp
             {
                 NroDocumento = _ruc,
                 TipoDocumento = "6",
-                Direccion = "CAL.MORELLI NRO. 181 INT. P-2",
+                Direccion = "CARRETERA PIMENTEL",
                 Urbanizacion = "-",
-                Departamento = "LIMA",
-                Provincia = "LIMA",
-                Distrito = "SAN BORJA",
-                NombreComercial = "PLAZA VEA",
-                NombreLegal = "SUPERMERCADOS PERUANOS SOCIEDAD ANONIMA",
+                Departamento = "LA LIBERTAD",
+                Provincia = "CHICLAYO",
+                Distrito = "CHICLAYO",
+                NombreComercial = "EMPRESA DE SOFTWARE",
+                NombreLegal = "EMPRESA DE SOFTWARE S.A.C.",
                 Ubigeo = "140101"
             };
         }
