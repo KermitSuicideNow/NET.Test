@@ -67,9 +67,6 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     FechaEmision = DateTime.Today.AddDays(-5).ToString(FormatoFecha),
                     Moneda = "PEN",
                     MontoEnLetras = "SON CIENTO DIECIOCHO SOLES CON 0/100",
-                    CalculoIgv = 0.18m,
-                    CalculoIsc = 0.10m,
-                    CalculoDetraccion = 0.04m,
                     TipoDocumento = "01",
                     TotalIgv = 18,
                     TotalVenta = 118,
@@ -89,7 +86,6 @@ namespace OpenInvoicePeru.ApiClientCSharp
                             Impuesto = 18,
                             TipoImpuesto = "10", // Gravada
                             TotalVenta = 100,
-                            Suma = 100
                         }
                     }
                 };
@@ -175,9 +171,6 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     FechaEmision = DateTime.Today.AddDays(-5).ToString(FormatoFecha),
                     Moneda = "PEN",
                     MontoEnLetras = "SON CIENTO DIECIOCHO SOLES CON 0/100",
-                    CalculoIgv = 0.18m,
-                    CalculoIsc = 0.10m,
-                    CalculoDetraccion = 0.04m,
                     TipoDocumento = "03",
                     TotalIgv = 18,
                     TotalVenta = 118,
@@ -197,7 +190,6 @@ namespace OpenInvoicePeru.ApiClientCSharp
                             Impuesto = 18,
                             TipoImpuesto = "10", // Gravada
                             TotalVenta = 100,
-                            Suma = 100
                         }
                     }
                 };
@@ -283,9 +275,6 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     FechaEmision = DateTime.Today.AddDays(-5).ToString(FormatoFecha),
                     Moneda = "PEN",
                     MontoEnLetras = "SON CINCO SOLES CON 0/100",
-                    CalculoIgv = 0.18m,
-                    CalculoIsc = 0.10m,
-                    CalculoDetraccion = 0.04m,
                     TipoDocumento = "07",
                     TotalIgv = 0.76m,
                     TotalVenta = 5,
@@ -305,7 +294,6 @@ namespace OpenInvoicePeru.ApiClientCSharp
                             Impuesto = 0.76m,
                             TipoImpuesto = "10", // Gravada
                             TotalVenta = 5,
-                            Suma = 5
                         }
                     },
                     Discrepancias = new List<Discrepancia>
