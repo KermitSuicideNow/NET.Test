@@ -17,6 +17,7 @@ namespace OpenInvoicePeru.ApiClientCSharp
         static void Main()
         {
             Console.ForegroundColor = ConsoleColor.Green;
+            Console.Title = "Clientes OpenInvoicePeru (C#)";
 
             Console.WriteLine("Prueba de API REST de OpenInvoicePeru (C#)");
             Console.WriteLine("Ingrese su numero de RUC (puede elegir cualquiera)");

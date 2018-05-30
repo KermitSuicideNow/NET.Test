@@ -14,6 +14,7 @@ Module Program
 
     Sub Main()
         Console.ForegroundColor = ConsoleColor.Green
+        Console.Title = "Clientes OpenInvoicePeru (VB.NET)"
 
         Console.WriteLine("Prueba de API REST de OpenInvoicePeru (VB.NET)")
         Console.WriteLine("Ingrese su numero de RUC (puede elegir cualquiera)")
