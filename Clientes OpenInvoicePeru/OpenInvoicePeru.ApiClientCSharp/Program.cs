@@ -1,8 +1,8 @@
-﻿using System;
+﻿using OpenInvoicePeru.Comun.Dto.Intercambio;
+using OpenInvoicePeru.Comun.Dto.Modelos;
+using System;
 using System.Collections.Generic;
 using System.IO;
-using OpenInvoicePeru.Comun.Dto.Intercambio;
-using OpenInvoicePeru.Comun.Dto.Modelos;
 
 namespace OpenInvoicePeru.ApiClientCSharp
 {
@@ -29,7 +29,7 @@ namespace OpenInvoicePeru.ApiClientCSharp
             CrearComunicacionBaja();
             CrearDocumentoRetencion();
             CrearDocumentoPercepcion();
-
+            DescargarComprobante();
             Console.ReadLine();
         }
 
@@ -93,7 +93,8 @@ namespace OpenInvoicePeru.ApiClientCSharp
 
                 Console.WriteLine("Generando XML....");
 
-                var documentoResponse = RestHelper<DocumentoElectronico, DocumentoResponse>.Execute("GenerarFactura", documento);
+                var documentoResponse =
+                    RestHelper<DocumentoElectronico, DocumentoResponse>.Execute("GenerarFactura", documento);
 
                 if (!documentoResponse.Exito)
                 {
@@ -132,7 +133,9 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     TramaXmlFirmado = responseFirma.TramaXmlFirmado
                 };
 
-                var enviarDocumentoResponse = RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento", documentoRequest);
+                var enviarDocumentoResponse =
+                    RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento",
+                        documentoRequest);
 
                 if (!enviarDocumentoResponse.Exito)
                 {
@@ -153,7 +156,7 @@ namespace OpenInvoicePeru.ApiClientCSharp
                 Console.ReadLine();
             }
         }
-        
+
         private static void CrearBoleta()
         {
             try
@@ -197,7 +200,8 @@ namespace OpenInvoicePeru.ApiClientCSharp
 
                 Console.WriteLine("Generando XML....");
 
-                var documentoResponse = RestHelper<DocumentoElectronico, DocumentoResponse>.Execute("GenerarFactura", documento);
+                var documentoResponse =
+                    RestHelper<DocumentoElectronico, DocumentoResponse>.Execute("GenerarFactura", documento);
 
                 if (!documentoResponse.Exito)
                 {
@@ -236,7 +240,9 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     TramaXmlFirmado = responseFirma.TramaXmlFirmado
                 };
 
-                var enviarDocumentoResponse = RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento", documentoRequest);
+                var enviarDocumentoResponse =
+                    RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento",
+                        documentoRequest);
 
                 if (!enviarDocumentoResponse.Exito)
                 {
@@ -257,7 +263,7 @@ namespace OpenInvoicePeru.ApiClientCSharp
                 Console.ReadLine();
             }
         }
-        
+
         private static void CrearNotaCredito()
         {
             try
@@ -318,7 +324,8 @@ namespace OpenInvoicePeru.ApiClientCSharp
 
                 Console.WriteLine("Generando XML....");
 
-                var documentoResponse = RestHelper<DocumentoElectronico, DocumentoResponse>.Execute("GenerarNotaCredito", documento);
+                var documentoResponse =
+                    RestHelper<DocumentoElectronico, DocumentoResponse>.Execute("GenerarNotaCredito", documento);
 
                 if (!documentoResponse.Exito)
                 {
@@ -357,7 +364,9 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     TramaXmlFirmado = responseFirma.TramaXmlFirmado
                 };
 
-                var enviarDocumentoResponse = RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento", documentoRequest);
+                var enviarDocumentoResponse =
+                    RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento",
+                        documentoRequest);
 
                 if (!enviarDocumentoResponse.Exito)
                 {
@@ -384,6 +393,16 @@ namespace OpenInvoicePeru.ApiClientCSharp
             try
             {
                 Console.WriteLine("Ejemplo de Resumen Diario");
+                //El nombre del archivo debe ser así: {RUC}-RC-{20180801}-{001}.XML
+                /*
+                 * Consideraciones de los resúmenes diarios.
+                 * 1. Los Resumenes solo pueden contener hasta 500 boletas y sus respectivas notas.
+                 * 2. Si en el Resumen se consigna NC o ND entonces éstas deben ir en otro resumen con el correlativo siguiente.
+                 * 3. Los RC (Resumen de Comprobantes) es como hacer un INSERT a la BD de SUNAT.
+                 * 4. Los RC son atomicos, todo o nada.
+                 * 5. Si el codigo de error de SUNAT empieza con 1 entonces el RC no es informado, en cambio si el codigo empieza con 2
+                 *    entonces, hay que corregir el resumen.
+                 */
                 var documentoResumenDiario = new ResumenDiarioNuevo
                 {
                     IdDocumento = string.Format("RC-{0:yyyyMMdd}-001", DateTime.Today),
@@ -398,7 +417,7 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     Id = 1,
                     TipoDocumento = "03",
                     IdDocumento = "BB14-33386",
-                    NroDocumentoReceptor = "41614074",
+                    NroDocumentoReceptor = "888888888",
                     TipoDocumentoReceptor = "1",
                     CodigoEstadoItem = 1, // 1 - Agregar. 2 - Modificar. 3 - Eliminar
                     Moneda = "PEN",
@@ -421,10 +440,26 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     Gravadas = 8168.64m,
                 });
 
+                documentoResumenDiario.Resumenes.Add(new GrupoResumenNuevo
+                {
+                    Id = 3,
+                    TipoDocumento = "03",
+                    IdDocumento = "BB30-33385",
+                    NroDocumentoReceptor = "08506678",
+                    TipoDocumentoReceptor = "1",
+                    CodigoEstadoItem = 1, // 1 - Agregar. 2 - Modificar. 3 - Eliminar
+                    Moneda = "PEN",
+                    TotalVenta = 9580m,
+                    TotalIgv = 0,
+                    Inafectas = 8168.64m,
+                });
+
 
                 Console.WriteLine("Generando XML....");
-                
-                var documentoResponse = RestHelper<ResumenDiarioNuevo, DocumentoResponse>.Execute("GenerarResumenDiario/v2", documentoResumenDiario);
+
+                var documentoResponse =
+                    RestHelper<ResumenDiarioNuevo, DocumentoResponse>.Execute("GenerarResumenDiario/v2",
+                        documentoResumenDiario);
 
                 if (!documentoResponse.Exito)
                     throw new InvalidOperationException(documentoResponse.MensajeError);
@@ -462,7 +497,9 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     TramaXmlFirmado = responseFirma.TramaXmlFirmado
                 };
 
-                var enviarResumenResponse = RestHelper<EnviarDocumentoRequest, EnviarResumenResponse>.Execute("EnviarResumen", enviarDocumentoRequest);
+                var enviarResumenResponse =
+                    RestHelper<EnviarDocumentoRequest, EnviarResumenResponse>.Execute("EnviarResumen",
+                        enviarDocumentoRequest);
 
                 if (!enviarResumenResponse.Exito)
                 {
@@ -515,8 +552,9 @@ namespace OpenInvoicePeru.ApiClientCSharp
                 });
 
                 Console.WriteLine("Generando XML....");
-                
-                var documentoResponse = RestHelper<ComunicacionBaja, DocumentoResponse>.Execute("GenerarComunicacionBaja", documentoBaja);
+
+                var documentoResponse =
+                    RestHelper<ComunicacionBaja, DocumentoResponse>.Execute("GenerarComunicacionBaja", documentoBaja);
                 if (!documentoResponse.Exito)
                 {
                     throw new InvalidOperationException(documentoResponse.MensajeError);
@@ -555,7 +593,8 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     TramaXmlFirmado = responseFirma.TramaXmlFirmado
                 };
 
-                var enviarResumenResponse = RestHelper<EnviarDocumentoRequest, EnviarResumenResponse>.Execute("EnviarResumen", sendBill);
+                var enviarResumenResponse =
+                    RestHelper<EnviarDocumentoRequest, EnviarResumenResponse>.Execute("EnviarResumen", sendBill);
 
                 if (!enviarResumenResponse.Exito)
                 {
@@ -625,7 +664,8 @@ namespace OpenInvoicePeru.ApiClientCSharp
 
                 Console.WriteLine("Generando XML....");
 
-                var documentoResponse = RestHelper<DocumentoRetencion, DocumentoResponse>.Execute("GenerarRetencion", documento);
+                var documentoResponse =
+                    RestHelper<DocumentoRetencion, DocumentoResponse>.Execute("GenerarRetencion", documento);
 
                 if (!documentoResponse.Exito)
                 {
@@ -664,7 +704,9 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     TramaXmlFirmado = responseFirma.TramaXmlFirmado
                 };
 
-                var enviarDocumentoResponse = RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento", enviarDocumentoRequest);
+                var enviarDocumentoResponse =
+                    RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento",
+                        enviarDocumentoRequest);
 
                 if (!enviarDocumentoResponse.Exito)
                 {
@@ -737,7 +779,8 @@ namespace OpenInvoicePeru.ApiClientCSharp
 
                 Console.WriteLine("Generando XML....");
 
-                var documentoResponse = RestHelper<DocumentoPercepcion, DocumentoResponse>.Execute("GenerarPercepcion", documento);
+                var documentoResponse =
+                    RestHelper<DocumentoPercepcion, DocumentoResponse>.Execute("GenerarPercepcion", documento);
 
                 if (!documentoResponse.Exito)
                 {
@@ -776,7 +819,8 @@ namespace OpenInvoicePeru.ApiClientCSharp
                     TramaXmlFirmado = responseFirma.TramaXmlFirmado
                 };
 
-                var responseSendBill = RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento", sendBill);
+                var responseSendBill =
+                    RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento", sendBill);
 
                 if (!responseSendBill.Exito)
                 {
@@ -796,6 +840,51 @@ namespace OpenInvoicePeru.ApiClientCSharp
             {
                 Console.ReadLine();
             }
+        }
+
+        private static void DescargarComprobante()
+        {
+            Console.WriteLine("Consulta de Comprobantes Electrónicos (solo Producción)");
+            var usuario = LeerLinea("Ingrese usuario SOL");
+            var clave = LeerLinea("Ingrese Clave SOL");
+            var tipoDoc = LeerLinea("Ingrese Codigo Tipo de Documento a Consultar (01, 03, 07 o 08)");
+            var serie = LeerLinea("Ingrese Serie Documento a Leer");
+            var correlativo = LeerLinea("Ingrese el correlativo del documento sin ceros");
+
+            var consultaConstanciaRequest = new ConsultaConstanciaRequest
+            {
+                UsuarioSol = usuario,
+                ClaveSol = clave,
+                TipoDocumento = tipoDoc,
+                Serie = serie,
+                Numero = Convert.ToInt32(correlativo),
+                Ruc = _ruc,
+                EndPointUrl = "https://e-factura.sunat.gob.pe/ol-it-wsconscpegem/billConsultService"
+            };
+
+            var documentoResponse =
+                RestHelper<ConsultaConstanciaRequest, EnviarDocumentoResponse>.Execute("ConsultarConstancia",
+                    consultaConstanciaRequest);
+
+            if (!documentoResponse.Exito)
+            {
+                Console.WriteLine(documentoResponse.MensajeError);
+                return;
+            }
+
+            var archivo = documentoResponse.NombreArchivo.Replace(".xml", string.Empty);
+            Console.WriteLine($"Escribiendo documento en la carpeta del ejecutable... {archivo}");
+
+            File.WriteAllBytes($"{archivo}.zip", Convert.FromBase64String(documentoResponse.TramaZipCdr));
+
+            Console.WriteLine($"Código: {documentoResponse.CodigoRespuesta} => {documentoResponse.MensajeRespuesta}");
+
+        }
+
+        private static string LeerLinea(string mensaje)
+        {
+            Console.WriteLine(mensaje);
+            return Console.ReadLine();
         }
     }
 }
