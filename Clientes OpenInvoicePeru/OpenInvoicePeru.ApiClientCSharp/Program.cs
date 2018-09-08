@@ -10,6 +10,7 @@ namespace OpenInvoicePeru.ApiClientCSharp
     {
         private const string UrlSunat = "https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService";
         private const string UrlOtroCpe = "https://e-beta.sunat.gob.pe/ol-ti-itemision-otroscpe-gem-beta/billService";
+        private const string UrlGuiaRemision = "https://e-beta.sunat.gob.pe/ol-ti-itemision-guia-gem-beta/billService";
 
         private const string FormatoFecha = "yyyy-MM-dd";
         private static string _ruc;
@@ -29,6 +30,7 @@ namespace OpenInvoicePeru.ApiClientCSharp
             CrearComunicacionBaja();
             CrearDocumentoRetencion();
             CrearDocumentoPercepcion();
+            CrearGuiaRemision();
             DescargarComprobante();
             Console.ReadLine();
         }
@@ -869,6 +871,126 @@ namespace OpenInvoicePeru.ApiClientCSharp
             {
                 Console.ReadLine();
             }
+        }
+
+        private static void CrearGuiaRemision()
+        {
+            try
+            {
+                Console.WriteLine("Ejemplo de Guia de Remisión");
+                var guia = new GuiaRemision
+                {
+                    IdDocumento = "TAAA-2344",
+                    FechaEmision = DateTime.Today.ToString(FormatoFecha),
+                    TipoDocumento = "09",
+                    Glosa = "Guia de Prueba",
+                    Remitente = CrearEmisor(),
+                    Destinatario = new Contribuyente
+                    {
+                        NroDocumento = "20100039207",
+                        TipoDocumento = "6",
+                        NombreLegal = "RANSA COMERCIAL S.A.",
+                    },
+                    ShipmentId = "001",
+                    CodigoMotivoTraslado = "01",
+                    DescripcionMotivo = "VENTA DIRECTA",
+                    Transbordo = false,
+                    PesoBrutoTotal = 50,
+                    NroPallets = 0,
+                    ModalidadTraslado = "01",
+                    FechaInicioTraslado = DateTime.Today.ToString(FormatoFecha),
+                    RucTransportista = "20257471609",
+                    RazonSocialTransportista = "FRAMEWORK PERU",
+                    NroPlacaVehiculo = "YG-9244",
+                    NroDocumentoConductor = "88888888",
+                    DireccionPartida = new Direccion
+                    {
+                        Ubigeo = "150119",
+                        DireccionCompleta = "AV. ARAMBURU 878"
+                    },
+                    DireccionLlegada = new Direccion
+                    {
+                        Ubigeo = "150101",
+                        DireccionCompleta = "AV. ARGENTINA 2388"
+                    },
+                    NumeroContenedor = string.Empty,
+                    CodigoPuerto = string.Empty,
+                    BienesATransportar = new List<DetalleGuia>()
+                {
+                    new DetalleGuia
+                    {
+                        Correlativo = 1,
+                        CodigoItem = "XXXX",
+                        Descripcion = "XXXXXXX",
+                        UnidadMedida = "NIU",
+                        Cantidad = 4,
+                        LineaReferencia = 1
+                    }
+                }
+                };
+
+                Console.WriteLine("Generando XML....");
+
+                var documentoResponse = RestHelper<GuiaRemision, DocumentoResponse>.Execute("GenerarGuiaRemision", guia);
+
+                if (!documentoResponse.Exito)
+                {
+                    throw new InvalidOperationException(documentoResponse.MensajeError);
+                }
+
+                Console.WriteLine("Firmando XML...");
+                // Firmado del Documento.
+                var firmado = new FirmadoRequest
+                {
+                    TramaXmlSinFirma = documentoResponse.TramaXmlSinFirma,
+                    CertificadoDigital = Convert.ToBase64String(File.ReadAllBytes("certificado.pfx")),
+                    PasswordCertificado = string.Empty,
+                    UnSoloNodoExtension = true
+                };
+
+                var responseFirma = RestHelper<FirmadoRequest, FirmadoResponse>.Execute("Firmar", firmado);
+
+                if (!responseFirma.Exito)
+                {
+                    throw new InvalidOperationException(responseFirma.MensajeError);
+                }
+
+                File.WriteAllBytes("GuiaRemision.xml", Convert.FromBase64String(responseFirma.TramaXmlFirmado));
+
+                Console.WriteLine("Enviando a SUNAT....");
+
+                var documentoRequest = new EnviarDocumentoRequest
+                {
+                    Ruc = guia.Remitente.NroDocumento,
+                    UsuarioSol = "MODDATOS",
+                    ClaveSol = "MODDATOS",
+                    EndPointUrl = UrlGuiaRemision,
+                    IdDocumento = guia.IdDocumento,
+                    TipoDocumento = guia.TipoDocumento,
+                    TramaXmlFirmado = responseFirma.TramaXmlFirmado
+                };
+
+                var enviarDocumentoResponse = RestHelper<EnviarDocumentoRequest, EnviarDocumentoResponse>.Execute("EnviarDocumento", documentoRequest);
+
+                if (!enviarDocumentoResponse.Exito)
+                {
+                    throw new InvalidOperationException(enviarDocumentoResponse.MensajeError);
+                }
+
+                File.WriteAllBytes("GuaiRemisionCdr.zip", Convert.FromBase64String(enviarDocumentoResponse.TramaZipCdr));
+
+                Console.WriteLine("Respuesta de SUNAT:");
+                Console.WriteLine(enviarDocumentoResponse.MensajeRespuesta);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            finally
+            {
+                Console.ReadLine();
+            }
+
         }
 
         private static void DescargarComprobante()

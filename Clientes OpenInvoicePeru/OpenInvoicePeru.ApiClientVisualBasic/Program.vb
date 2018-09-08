@@ -8,6 +8,7 @@ Module Program
 
     Private Const UrlSunat As String = "https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService"
     Private Const UrlOtroCpe As String = "https://e-beta.sunat.gob.pe/ol-ti-itemision-otroscpe-gem-beta/billService"
+    Private Const UrlGuiaRemision As String = "https://e-beta.sunat.gob.pe/ol-ti-itemision-guia-gem-beta/billService"
 
     Private Const FormatoFecha As String = "yyyy-MM-dd"
     Private _ruc As String
@@ -26,7 +27,8 @@ Module Program
         CrearComunicacionBaja()
         CrearDocumentoRetencion()
         CrearDocumentoPercepcion()
-
+        CrearGuiaRemision()
+        DescargarComprobante()
         Console.ReadLine()
     End Sub
 
@@ -415,11 +417,38 @@ Module Program
             End If
 
             Console.WriteLine("Nro de Ticket: {0}", enviarResumenResponse.NroTicket)
+
+            ConsultarTicket(enviarResumenResponse.NroTicket)
+
         Catch ex As Exception
             Console.WriteLine(ex.Message)
         Finally
             Console.ReadLine()
         End Try
+    End Sub
+
+    Private Sub ConsultarTicket(nroTicket As String)
+        Dim consultarTicketRequest = New ConsultaTicketRequest() With {
+                .Ruc = _ruc,
+                .NroTicket = nroTicket,
+                .UsuarioSol = "MODDATOS",
+                .ClaveSol = "MODDATOS",
+                .EndPointUrl = UrlSunat
+                }
+
+        Dim response = RestHelper(Of ConsultaTicketRequest, EnviarDocumentoResponse).Execute("ConsultarTicket", consultarTicketRequest)
+
+        If Not response.Exito Then
+            Console.WriteLine(response.MensajeError)
+            Return
+        End If
+
+        Dim archivo = response.NombreArchivo.Replace(".xml", String.Empty)
+        Console.WriteLine("Escribiendo documento en la carpeta del ejecutable... {archivo}")
+
+        File.WriteAllBytes($"{archivo}.zip", Convert.FromBase64String(response.TramaZipCdr))
+
+        Console.WriteLine($"Código: {response.CodigoRespuesta} => {response.MensajeRespuesta}")
     End Sub
 
     Private Sub CrearComunicacionBaja()
@@ -694,5 +723,147 @@ Module Program
             Console.ReadLine()
         End Try
     End Sub
+
+    Private Sub CrearGuiaRemision()
+        Try
+            Console.WriteLine("Ejemplo de Guia de Remisión")
+            Dim guia = New GuiaRemision() With {
+                    .IdDocumento = "TAAA-2344",
+                    .FechaEmision = DateTime.Today.ToString(FormatoFecha),
+                    .TipoDocumento = "09",
+                    .Glosa = "Guia de Prueba",
+                    .Remitente = CrearEmisor(),
+                    .Destinatario = New Contribuyente() With {
+                                            .NroDocumento = "20100039207",
+        .TipoDocumento = "6",
+        .NombreLegal = "RANSA COMERCIAL S.A."
+        },
+        .ShipmentId = "001",
+        .CodigoMotivoTraslado = "01",
+        .DescripcionMotivo = "VENTA DIRECTA",
+        .Transbordo = False,
+        .PesoBrutoTotal = 50,
+        .NroPallets = 0,
+        .ModalidadTraslado = "01",
+        .FechaInicioTraslado = DateTime.Today.ToString(FormatoFecha),
+        .RucTransportista = "20257471609",
+        .RazonSocialTransportista = "FRAMEWORK PERU",
+        .NroPlacaVehiculo = "YG-9244",
+        .NroDocumentoConductor = "88888888",
+        .DireccionPartida = New Direccion() With {
+            .Ubigeo = "150119",
+            .DireccionCompleta = "AV. ARAMBURU 878"
+            },
+        .DireccionLlegada = New Direccion() With {
+            .Ubigeo = "150101",
+            .DireccionCompleta = "AV. ARGENTINA 2388"
+            },
+        .NumeroContenedor = String.Empty,
+        .CodigoPuerto = String.Empty,
+        .BienesATransportar = New List(Of DetalleGuia)() From {
+            New DetalleGuia() With {
+                .Correlativo = 1,
+                .CodigoItem = "XXXX",
+                .Descripcion = "XXXXXXX",
+                .UnidadMedida = "NIU",
+                .Cantidad = 4,
+                .LineaReferencia = 1
+                }
+            }
+        }
+
+            Console.WriteLine("Generando XML....")
+
+            Dim documentoResponse = RestHelper(Of GuiaRemision, DocumentoResponse).Execute("GenerarGuiaRemision", guia)
+
+            If Not documentoResponse.Exito Then
+                Throw New InvalidOperationException(documentoResponse.MensajeError)
+            End If
+
+            Console.WriteLine("Firmando XML...")
+            ' Firmado del Documento.
+            Dim firmado = New FirmadoRequest() With {
+                    .TramaXmlSinFirma = documentoResponse.TramaXmlSinFirma,
+                    .CertificadoDigital = Convert.ToBase64String(File.ReadAllBytes("certificado.pfx")),
+                    .PasswordCertificado = String.Empty,
+                    .UnSoloNodoExtension = True
+                    }
+
+            Dim responseFirma = RestHelper(Of FirmadoRequest, FirmadoResponse).Execute("Firmar", firmado)
+
+            If Not responseFirma.Exito Then
+                Throw New InvalidOperationException(responseFirma.MensajeError)
+            End If
+
+            File.WriteAllBytes("GuiaRemision.xml", Convert.FromBase64String(responseFirma.TramaXmlFirmado))
+
+            Console.WriteLine("Enviando a SUNAT....")
+
+            Dim documentoRequest = New EnviarDocumentoRequest() With {
+                    .Ruc = guia.Remitente.NroDocumento,
+                    .UsuarioSol = "MODDATOS",
+                    .ClaveSol = "MODDATOS",
+                    .EndPointUrl = UrlGuiaRemision,
+                    .IdDocumento = guia.IdDocumento,
+                    .TipoDocumento = guia.TipoDocumento,
+                    .TramaXmlFirmado = responseFirma.TramaXmlFirmado
+                    }
+
+            Dim enviarDocumentoResponse = RestHelper(Of EnviarDocumentoRequest, EnviarDocumentoResponse).Execute("EnviarDocumento", documentoRequest)
+
+            If Not enviarDocumentoResponse.Exito Then
+                Throw New InvalidOperationException(enviarDocumentoResponse.MensajeError)
+            End If
+
+            File.WriteAllBytes("GuaiRemisionCdr.zip", Convert.FromBase64String(enviarDocumentoResponse.TramaZipCdr))
+
+            Console.WriteLine("Respuesta de SUNAT:")
+            Console.WriteLine(enviarDocumentoResponse.MensajeRespuesta)
+        Catch ex As Exception
+            Console.WriteLine(ex.Message)
+        Finally
+            Console.ReadLine()
+        End Try
+
+    End Sub
+
+    Private Sub DescargarComprobante()
+        Console.WriteLine("Consulta de Comprobantes Electrónicos (solo Producción)")
+        Dim usuario = LeerLinea("Ingrese usuario SOL")
+        Dim clave = LeerLinea("Ingrese Clave SOL")
+        Dim tipoDoc = LeerLinea("Ingrese Codigo Tipo de Documento a Consultar (01, 03, 07 o 08)")
+        Dim serie = LeerLinea("Ingrese Serie Documento a Leer")
+        Dim correlativo = LeerLinea("Ingrese el correlativo del documento sin ceros")
+
+        Dim consultaConstanciaRequest = New ConsultaConstanciaRequest() With {
+                .UsuarioSol = usuario,
+                .ClaveSol = clave,
+                .TipoDocumento = tipoDoc,
+                .Serie = serie,
+                .Numero = Convert.ToInt32(correlativo),
+                .Ruc = _ruc,
+                .EndPointUrl = "https://e-factura.sunat.gob.pe/ol-it-wsconscpegem/billConsultService"
+                }
+
+        Dim documentoResponse = RestHelper(Of ConsultaConstanciaRequest, EnviarDocumentoResponse).Execute("ConsultarConstancia", consultaConstanciaRequest)
+
+        If Not documentoResponse.Exito Then
+            Console.WriteLine(documentoResponse.MensajeError)
+            Return
+        End If
+
+        Dim archivo = documentoResponse.NombreArchivo.Replace(".xml", String.Empty)
+        Console.WriteLine("Escribiendo documento en la carpeta del ejecutable... {archivo}")
+
+        File.WriteAllBytes($"{archivo}.zip", Convert.FromBase64String(documentoResponse.TramaZipCdr))
+
+        Console.WriteLine($"Código: {documentoResponse.CodigoRespuesta} => {documentoResponse.MensajeRespuesta}")
+
+    End Sub
+
+    Private Function LeerLinea(mensaje As String) As String
+        Console.WriteLine(mensaje)
+        Return Console.ReadLine()
+    End Function
 
 End Module
