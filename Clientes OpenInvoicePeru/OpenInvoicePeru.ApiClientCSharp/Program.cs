@@ -507,6 +507,8 @@ namespace OpenInvoicePeru.ApiClientCSharp
                 }
 
                 Console.WriteLine("Nro de Ticket: {0}", enviarResumenResponse.NroTicket);
+
+                ConsultarTicket(enviarResumenResponse.NroTicket);
             }
             catch (Exception ex)
             {
@@ -516,6 +518,33 @@ namespace OpenInvoicePeru.ApiClientCSharp
             {
                 Console.ReadLine();
             }
+        }
+
+        private static void ConsultarTicket(string nroTicket)
+        {
+            var consultarTicketRequest = new ConsultaTicketRequest
+            {
+                Ruc = _ruc,
+                NroTicket = nroTicket,
+                UsuarioSol = "MODDATOS",
+                ClaveSol = "MODDATOS",
+                EndPointUrl = UrlSunat
+            };
+
+            var response = RestHelper<ConsultaTicketRequest, EnviarDocumentoResponse>.Execute("ConsultarTicket", consultarTicketRequest);
+
+            if (!response.Exito)
+            {
+                Console.WriteLine(response.MensajeError);
+                return;
+            }
+
+            var archivo = response.NombreArchivo.Replace(".xml", string.Empty);
+            Console.WriteLine($"Escribiendo documento en la carpeta del ejecutable... {archivo}");
+
+            File.WriteAllBytes($"{archivo}.zip", Convert.FromBase64String(response.TramaZipCdr));
+
+            Console.WriteLine($"Código: {response.CodigoRespuesta} => {response.MensajeRespuesta}");
         }
 
         private static void CrearComunicacionBaja()
