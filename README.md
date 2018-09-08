@@ -26,3 +26,6 @@ Si te gusta este proyecto postea en Twitter o Facebook con el hashtag [#OpenInvo
 - Creacion de Comunicación de Baja
 - Creacion de Retenciones
 - Creacion de Percepciones
+- Creación de Guías de Remisión Remitente
+- Consulta de Tickets
+- Descarga de CDR en Producción
